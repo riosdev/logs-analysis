@@ -1,6 +1,8 @@
+#!/usr/bin/env python
 # encoding: utf-8
 
 import psycopg2
+import sys
 
 title1 = "1. Quais são os três artigos mais populares de todos os tempos?"
 
@@ -8,29 +10,39 @@ title2 = "2. Quem são os autores de artigos mais populares de todos os tempos?"
 
 title3 = "3. Em quais dias mais de 1% das requisições resultaram em erros?"
 
-query_1 = (
-    "select title, count(*) as views "
-    "from articles join log on log.path = CONCAT('/article/',articles.slug) "
-    "group by title order by views desc limit 3")
+query_1 = ("""
+    select title, count(*) as views
+    from articles join log on log.path = CONCAT('/article/',articles.slug)
+    group by title order by views desc limit 3""")
 
-query_2 = (
-    "select name, sum(views) as total_views from authors "
-    "join (  select author, title, count(*) as views "
-    "from articles join log on log.path = CONCAT('/article/',slug) "
-    "group by title, author) as most_popular "
-    "on most_popular.author = authors.id "
-    "group by name order by total_views desc;")
+query_2 = ("""
+    select name, sum(views) as total_views from authors
+    join (  select author, title, count(*) as views
+    from articles join log on log.path = CONCAT('/article/',slug)
+    group by title, author) as most_popular
+    on most_popular.author = authors.id
+    group by name order by total_views desc;""")
 
-query_3 = (
-    "select ok.dia as dia, "
-    "(cast(conta_nok as float)/cast(conta_ok as float)) as pct "
-    "from (  select date_trunc('day', time) as dia, count(*) as CONTA_OK "
-    "from log where status like '%200%' group by dia) as ok "
-    "join (  select date_trunc('day', time) as dia, count(*) as CONTA_NOK "
-    "from log where status like '%404%' group by dia) as nok "
-    "on ok.dia = nok.dia "
-    "where (cast(conta_nok as float)/cast(conta_ok as float)) > 0.01 "
-    "order by pct desc;")
+query_3 = ("""
+    select ok.dia as dia,
+    (cast(conta_nok as float)/cast(conta_ok as float)) as pct
+    from (  select date_trunc('day', time) as dia, count(*) as CONTA_OK
+    from log where status like '%200%' group by dia) as ok
+    join (  select date_trunc('day', time) as dia, count(*) as CONTA_NOK
+    from log where status like '%404%' group by dia) as nok
+    on ok.dia = nok.dia
+    where (cast(conta_nok as float)/cast(conta_ok as float)) > 0.01
+    order by pct desc;""")
+
+
+def connect(database_name):
+    """Connect to the database."""
+    try:
+        db = psycopg2.connect(dbname=database_name)
+        return db
+    except psycopg2.Error as e:
+        print("Unable to connect to the database")
+        sys.exit(1)
 
 
 def get_query(cursor, query):
@@ -38,7 +50,7 @@ def get_query(cursor, query):
     return cursor.fetchall()
 
 
-db = psycopg2.connect(database="news")
+db = connect(database_name="news")
 c = db.cursor()
 
 print(title1 + '\n')
